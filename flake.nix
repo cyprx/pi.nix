@@ -13,12 +13,16 @@
         lib = pkgs.lib;
 
         pi-coding-agent = pkgs.callPackage ./nix/pi-coding-agent { };
+        iii-engine = pkgs.callPackage ./nix/iii-engine { };
+        agentmemory = pkgs.callPackage ./nix/agentmemory {
+          inherit iii-engine;
+        };
 
         # Extension packages (source only, no wrapper)
         # nodejs and github-mcp-server are resolved from pkgs by callPackage
         pi-web-search-ext = pkgs.callPackage ./nix/pi-web-search { };
         pi-agentmemory-ext = pkgs.callPackage ./nix/pi-agentmemory {
-          inherit agentmemory;
+          inherit agentmemory iii-engine;
         };
         pi-github-mcp-ext = pkgs.callPackage ./nix/pi-github-mcp { };
 
@@ -33,12 +37,10 @@
         pi-agentmemory = mkPi "agentmemory" [ pi-agentmemory-ext ] [ ] "";
         pi-github-mcp = mkPi "github-mcp" [ pi-web-search-ext pi-github-mcp-ext ] [ ] "";
         pi-full = mkPi "full" [ pi-web-search-ext pi-agentmemory-ext pi-github-mcp-ext ] [ ] "";
-
-        agentmemory = pkgs.callPackage ./nix/agentmemory { };
       in
       {
         packages = {
-          inherit pi-coding-agent pi-web-search pi-agentmemory pi-github-mcp pi-full agentmemory;
+          inherit pi-coding-agent iii-engine agentmemory pi-web-search pi-agentmemory pi-github-mcp pi-full;
           default = pi-full;
         };
 

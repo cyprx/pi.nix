@@ -3,6 +3,7 @@
 , runCommand
 , nodejs
 , agentmemory
+, iii-engine
 }:
 
 let
@@ -34,7 +35,7 @@ buildNpmPackage {
   '';
 
   passthru = {
-    runtimeInputs = [ nodejs agentmemory ];
+    runtimeInputs = [ nodejs agentmemory iii-engine ];
     wrapperFlags = "";
   };
 

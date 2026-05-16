@@ -3,6 +3,7 @@
 , fetchzip
 , nodejs
 , makeWrapper
+, iii-engine
 }:
 
 buildNpmPackage rec {
@@ -33,6 +34,8 @@ buildNpmPackage rec {
 
     mkdir -p $out/bin
     makeWrapper ${nodejs}/bin/node $out/bin/agentmemory \
+      --prefix PATH : ${lib.makeBinPath [ nodejs iii-engine ]} \
+      --set-default AGENTMEMORY_III_VERSION "${iii-engine.version}" \
       --add-flags "$out/lib/agentmemory/dist/cli.mjs"
     runHook postInstall
   '';

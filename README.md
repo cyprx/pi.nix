@@ -162,7 +162,8 @@ This starts the memory server on `http://localhost:3111`.
 | `pi-agentmemory` | Pi + agentmemory |
 | `pi-github-mcp` | Pi + GitHub MCP + web search |
 | `pi-full` | Pi + everything (default) |
-| `agentmemory` | Standalone agentmemory server |
+| `agentmemory` | Standalone agentmemory server (bundles iii-engine) |
+| `iii-engine` | iii-engine runtime (used by agentmemory) |
 
 ## Available Apps
 
@@ -197,7 +198,10 @@ Each extension declares its runtime dependencies (`passthru.runtimeInputs`) and 
 ### `agentmemory`
 
 1. Packages the `@agentmemory/agentmemory` npm package as a standalone server binary
-2. Runs the iii-engine memory server on port `3111` with file-based SQLite storage
+2. Bundles the [iii-engine](https://github.com/iii-hq/iii) runtime (the Rust binary agentmemory depends on)
+3. Runs the iii-engine memory server on port `3111` with file-based SQLite storage
+
+> **Note:** You don't need to install iii-engine separately — this flake packages it automatically and puts it on PATH for both the standalone `agentmemory` server and the `pi-agentmemory` / `pi-full` wrappers.
 
 ### `pi-agentmemory` extension
 
