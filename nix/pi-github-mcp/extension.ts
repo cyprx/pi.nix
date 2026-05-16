@@ -20,7 +20,7 @@ export default async function (pi: ExtensionAPI) {
   const client = new Client({ name: "pi-github-mcp", version: "1.0.0" });
   const transport = new StdioClientTransport({
     command: serverPath,
-    args: [],
+    args: ["stdio"],
     env: {
       ...process.env,
       GITHUB_PERSONAL_ACCESS_TOKEN: token,
@@ -76,6 +76,14 @@ export default async function (pi: ExtensionAPI) {
 
   pi.on("session_start", async (_event, ctx) => {
     ctx.ui.notify(`GitHub MCP loaded with ${tools.length} tool(s).`, "info");
+  });
+
+  pi.on("session_shutdown", async (_event, _ctx) => {
+    try {
+      await client.close();
+    } catch {
+      // ignore cleanup errors
+    }
   });
 }
 
