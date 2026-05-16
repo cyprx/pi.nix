@@ -5,6 +5,7 @@
 , makeWrapper
 , pi-coding-agent
 , github-mcp-server
+, pi-web-search ? null
 }:
 
 let
@@ -26,23 +27,33 @@ let
 
     installPhase = ''
       runHook preInstall
-      mkdir -p $out
-      cp -r . $out/
+      mkdir -p $out/share/pi-github-mcp
+      cp -r . $out/share/pi-github-mcp/
+      cp extension.ts $out/share/pi-github-mcp/extension.ts
       runHook postInstall
     '';
   };
+
+  wsExtPath = if pi-web-search != null then "${pi-web-search}/share/pi-web-search/extension.ts" else "";
 in
 
 runCommand "pi-github-mcp" { nativeBuildInputs = [ makeWrapper ]; } ''
   mkdir -p $out/bin
 
+  extFlags="-e ${extension}/share/pi-github-mcp/extension.ts"
+  ${lib.optionalString (pi-web-search != null) ''
+    if [ -f "${wsExtPath}" ]; then
+      extFlags="$extFlags -e ${wsExtPath}"
+    fi
+  ''}
+
   makeWrapper ${pi-coding-agent}/bin/pi $out/bin/pi-github-mcp \
     --prefix PATH : ${lib.makeBinPath [ github-mcp-server nodejs ]} \
     --set-default GITHUB_MCP_SERVER_PATH "${github-mcp-server}/bin/github-mcp-server" \
-    --add-flags "-e ${extension}/extension.ts"
+    --add-flags "$extFlags"
 
   makeWrapper ${pi-coding-agent}/bin/pi $out/bin/pi \
     --prefix PATH : ${lib.makeBinPath [ github-mcp-server nodejs ]} \
     --set-default GITHUB_MCP_SERVER_PATH "${github-mcp-server}/bin/github-mcp-server" \
-    --add-flags "-e ${extension}/extension.ts"
+    --add-flags "$extFlags"
 ''
