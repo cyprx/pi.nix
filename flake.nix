@@ -14,21 +14,29 @@
         pi-web-search = pkgs.callPackage ./nix/pi-web-search {
           inherit pi-coding-agent;
         };
+        agentmemory = pkgs.callPackage ./nix/agentmemory { };
+
+        pi-agentmemory = pkgs.callPackage ./nix/pi-agentmemory {
+          inherit pi-coding-agent agentmemory;
+        };
+
         pi-github-mcp = pkgs.callPackage ./nix/pi-github-mcp {
           inherit pi-coding-agent pi-web-search;
         };
       in
       {
         packages = {
-          inherit pi-coding-agent pi-web-search pi-github-mcp;
+          inherit pi-coding-agent pi-web-search agentmemory pi-agentmemory pi-github-mcp;
           default = pi-github-mcp;
         };
 
         devShells.default = pkgs.mkShell {
-          buildInputs = [ pi-github-mcp ];
+          buildInputs = [ pi-github-mcp pi-agentmemory ];
           shellHook = ''
-            echo "Pi coding agent with GitHub MCP + Web Search"
+            echo "Pi coding agent with GitHub MCP + Web Search + AgentMemory"
             echo "Run: pi-github-mcp"
+            echo "Run: pi-agentmemory"
+            echo "Start memory server: agentmemory"
           '';
         };
 
@@ -40,6 +48,10 @@
           pi-web-search = {
             type = "app";
             program = "${pi-web-search}/bin/pi-web-search";
+          };
+          pi-agentmemory = {
+            type = "app";
+            program = "${pi-agentmemory}/bin/pi-agentmemory";
           };
           pi-github-mcp = {
             type = "app";

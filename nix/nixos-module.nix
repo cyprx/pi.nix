@@ -9,6 +9,8 @@ in
   options.programs.pi-coding-agent = {
     enable = mkEnableOption "pi coding agent";
 
+    enableAgentMemory = mkEnableOption "agentmemory integration for pi";
+
     enableGitHubMCP = mkEnableOption "GitHub MCP integration for pi";
 
     githubTokenFile = mkOption {
@@ -27,6 +29,15 @@ in
       description = "The pi coding agent package to use.";
     };
 
+    agentMemoryPackage = mkOption {
+      type = types.package;
+      default = pkgs.pi-agentmemory or pkgs.callPackage ./pi-agentmemory {
+        pi-coding-agent = cfg.package;
+      };
+      defaultText = literalExpression "pkgs.pi-agentmemory";
+      description = "The pi-agentmemory package to use.";
+    };
+
     githubMCPPackage = mkOption {
       type = types.package;
       default = pkgs.pi-github-mcp or pkgs.callPackage ./pi-github-mcp {
@@ -40,6 +51,10 @@ in
   config = mkMerge [
     (mkIf cfg.enable {
       environment.systemPackages = [ cfg.package ];
+    })
+
+    (mkIf (cfg.enable && cfg.enableAgentMemory) {
+      environment.systemPackages = [ cfg.agentMemoryPackage ];
     })
 
     (mkIf (cfg.enable && cfg.enableGitHubMCP) {
