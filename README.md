@@ -14,7 +14,7 @@ A Nix flake that packages [pi](https://pi.dev) (the minimal terminal coding harn
 ### Run without installing
 
 ```bash
-nix run github:cyprx/pi-nix#pi-github-mcp
+nix run github:cyprx/pi.nix#pi-github-mcp
 ```
 
 ### Enter a dev shell
