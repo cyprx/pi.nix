@@ -4,6 +4,29 @@ with lib;
 
 let
   cfg = config.programs.pi-coding-agent;
+
+  mkPi = pkgs.callPackage ./lib/mk-pi-with-extensions.nix {
+    pi-coding-agent = cfg.package;
+  };
+
+  pi-agentmemory-composed = mkPi {
+    name = "agentmemory";
+    extensions = [ (pkgs.callPackage ./pi-agentmemory { }) ];
+  };
+
+  pi-github-mcp-composed = mkPi {
+    name = "github-mcp";
+    extensions = [ (pkgs.callPackage ./pi-web-search { }) (pkgs.callPackage ./pi-github-mcp { }) ];
+  };
+
+  pi-full-composed = mkPi {
+    name = "full";
+    extensions = [
+      (pkgs.callPackage ./pi-web-search { })
+      (pkgs.callPackage ./pi-agentmemory { })
+      (pkgs.callPackage ./pi-github-mcp { })
+    ];
+  };
 in
 {
   options.programs.pi-coding-agent = {
@@ -31,20 +54,23 @@ in
 
     agentMemoryPackage = mkOption {
       type = types.package;
-      default = pkgs.pi-agentmemory or pkgs.callPackage ./pi-agentmemory {
-        pi-coding-agent = cfg.package;
-      };
+      default = pkgs.pi-agentmemory or pi-agentmemory-composed;
       defaultText = literalExpression "pkgs.pi-agentmemory";
       description = "The pi-agentmemory package to use.";
     };
 
     githubMCPPackage = mkOption {
       type = types.package;
-      default = pkgs.pi-github-mcp or pkgs.callPackage ./pi-github-mcp {
-        pi-coding-agent = cfg.package;
-      };
+      default = pkgs.pi-github-mcp or pi-github-mcp-composed;
       defaultText = literalExpression "pkgs.pi-github-mcp";
       description = "The pi-github-mcp package to use.";
+    };
+
+    fullPackage = mkOption {
+      type = types.package;
+      default = pkgs.pi-full or pi-full-composed;
+      defaultText = literalExpression "pkgs.pi-full";
+      description = "The pi-full package (everything) to use.";
     };
   };
 
@@ -60,7 +86,6 @@ in
     (mkIf cfg.enableGitHubMCP {
       home.packages = [ cfg.githubMCPPackage ];
 
-      # Create a shell alias or wrapper that exports the token
       programs.bash.initExtra = mkIf (cfg.githubTokenFile != null) ''
         if [ -r "${cfg.githubTokenFile}" ]; then
           export GITHUB_PERSONAL_ACCESS_TOKEN=$(cat "${cfg.githubTokenFile}")

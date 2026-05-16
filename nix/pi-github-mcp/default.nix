@@ -2,10 +2,7 @@
 , buildNpmPackage
 , runCommand
 , nodejs
-, makeWrapper
-, pi-coding-agent
 , github-mcp-server
-, pi-web-search ? null
 }:
 
 let
@@ -15,45 +12,31 @@ let
     cp ${./package.json} $out/package.json
     cp ${./package-lock.json} $out/package-lock.json
   '';
-
-  extension = buildNpmPackage {
-    pname = "pi-github-mcp-extension";
-    version = "1.0.0";
-    src = extensionSrc;
-
-    npmDepsHash = "sha256-3j+ZlSJrfeCPctmthhW9aiYeprirnlEBPGxyGJDHLkk=";
-
-    dontNpmBuild = true;
-
-    installPhase = ''
-      runHook preInstall
-      mkdir -p $out/share/pi-github-mcp
-      cp -r . $out/share/pi-github-mcp/
-      cp extension.ts $out/share/pi-github-mcp/extension.ts
-      runHook postInstall
-    '';
-  };
-
-  wsExtPath = if pi-web-search != null then "${pi-web-search}/share/pi-web-search/extension.ts" else "";
 in
 
-runCommand "pi-github-mcp" { nativeBuildInputs = [ makeWrapper ]; } ''
-  mkdir -p $out/bin
+buildNpmPackage {
+  pname = "pi-github-mcp-ext";
+  version = "1.0.0";
+  src = extensionSrc;
 
-  extFlags="-e ${extension}/share/pi-github-mcp/extension.ts"
-  ${lib.optionalString (pi-web-search != null) ''
-    if [ -f "${wsExtPath}" ]; then
-      extFlags="$extFlags -e ${wsExtPath}"
-    fi
-  ''}
+  npmDepsHash = "sha256-3j+ZlSJrfeCPctmthhW9aiYeprirnlEBPGxyGJDHLkk=";
 
-  makeWrapper ${pi-coding-agent}/bin/pi $out/bin/pi-github-mcp \
-    --prefix PATH : ${lib.makeBinPath [ github-mcp-server nodejs ]} \
-    --set-default GITHUB_MCP_SERVER_PATH "${github-mcp-server}/bin/github-mcp-server" \
-    --add-flags "$extFlags"
+  dontNpmBuild = true;
 
-  makeWrapper ${pi-coding-agent}/bin/pi $out/bin/pi \
-    --prefix PATH : ${lib.makeBinPath [ github-mcp-server nodejs ]} \
-    --set-default GITHUB_MCP_SERVER_PATH "${github-mcp-server}/bin/github-mcp-server" \
-    --add-flags "$extFlags"
-''
+  installPhase = ''
+    runHook preInstall
+    mkdir -p $out/share/pi-extensions
+    cp -r . $out/share/pi-extensions/
+    cp extension.ts $out/share/pi-extensions/extension.ts
+    runHook postInstall
+  '';
+
+  passthru = {
+    runtimeInputs = [ nodejs github-mcp-server ];
+    wrapperFlags = ''--set-default GITHUB_MCP_SERVER_PATH "${github-mcp-server}/bin/github-mcp-server"'';
+  };
+
+  meta = with lib; {
+    description = "Pi extension for GitHub MCP integration";
+  };
+}

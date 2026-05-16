@@ -1,5 +1,5 @@
 {
-  description = "Pi coding agent with GitHub MCP integration for NixOS";
+  description = "Pi coding agent with GitHub MCP + Web Search + AgentMemory — Nix Flake";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -10,33 +10,48 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        lib = pkgs.lib;
+
         pi-coding-agent = pkgs.callPackage ./nix/pi-coding-agent { };
-        pi-web-search = pkgs.callPackage ./nix/pi-web-search {
-          inherit pi-coding-agent;
+
+        # Extension packages (source only, no wrapper)
+        # nodejs and github-mcp-server are resolved from pkgs by callPackage
+        pi-web-search-ext = pkgs.callPackage ./nix/pi-web-search { };
+        pi-agentmemory-ext = pkgs.callPackage ./nix/pi-agentmemory {
+          inherit agentmemory;
         };
+        pi-github-mcp-ext = pkgs.callPackage ./nix/pi-github-mcp { };
+
+        # Generic builder: compose pi with any set of extensions
+        mkPi = name: extensions: extraPackages: extraWrapperFlags:
+          pkgs.callPackage ./nix/lib/mk-pi-with-extensions.nix {
+            inherit pi-coding-agent name extensions extraPackages extraWrapperFlags;
+          };
+
+        # Composed packages — mix and match extensions as needed
+        pi-web-search = mkPi "web-search" [ pi-web-search-ext ] [ ] "";
+        pi-agentmemory = mkPi "agentmemory" [ pi-agentmemory-ext ] [ ] "";
+        pi-github-mcp = mkPi "github-mcp" [ pi-web-search-ext pi-github-mcp-ext ] [ ] "";
+        pi-full = mkPi "full" [ pi-web-search-ext pi-agentmemory-ext pi-github-mcp-ext ] [ ] "";
+
         agentmemory = pkgs.callPackage ./nix/agentmemory { };
-
-        pi-agentmemory = pkgs.callPackage ./nix/pi-agentmemory {
-          inherit pi-coding-agent agentmemory;
-        };
-
-        pi-github-mcp = pkgs.callPackage ./nix/pi-github-mcp {
-          inherit pi-coding-agent pi-web-search;
-        };
       in
       {
         packages = {
-          inherit pi-coding-agent pi-web-search agentmemory pi-agentmemory pi-github-mcp;
-          default = pi-github-mcp;
+          inherit pi-coding-agent pi-web-search pi-agentmemory pi-github-mcp pi-full agentmemory;
+          default = pi-full;
         };
 
         devShells.default = pkgs.mkShell {
-          buildInputs = [ pi-github-mcp pi-agentmemory ];
+          buildInputs = [ pi-full agentmemory ];
           shellHook = ''
-            echo "Pi coding agent with GitHub MCP + Web Search + AgentMemory"
-            echo "Run: pi-github-mcp"
-            echo "Run: pi-agentmemory"
-            echo "Start memory server: agentmemory"
+            echo "Pi coding agent — available variants:"
+            echo "  pi              vanilla pi"
+            echo "  pi-web-search   pi + web search"
+            echo "  pi-agentmemory  pi + agentmemory"
+            echo "  pi-github-mcp   pi + GitHub MCP + web search"
+            echo "  pi-full         pi + everything"
+            echo "  agentmemory     memory server"
           '';
         };
 
@@ -57,7 +72,11 @@
             type = "app";
             program = "${pi-github-mcp}/bin/pi-github-mcp";
           };
-          default = self.apps.${system}.pi-github-mcp;
+          pi-full = {
+            type = "app";
+            program = "${pi-full}/bin/pi-full";
+          };
+          default = self.apps.${system}.pi-full;
         };
       })
     // {
