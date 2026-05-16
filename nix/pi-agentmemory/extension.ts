@@ -92,7 +92,7 @@ async function callAgentMemory<T>(
 ): Promise<T | null> {
   const baseUrl = normalizeBaseUrl(options?.baseUrl || process.env.AGENTMEMORY_URL || DEFAULT_URL);
   const method = options?.method || "POST";
-  const url = `${baseUrl}/agentmemory/${pathname.replace(/^\/+, "")}`;
+  const url = `${baseUrl}/agentmemory/${pathname.replace(/^\/+/, "")}`;
   const headers: Record<string, string> = {};
   const secret = process.env.AGENTMEMORY_SECRET;
   guardPlaintextBearerAuth(baseUrl, secret);
