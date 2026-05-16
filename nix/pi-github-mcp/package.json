@@ -1,0 +1,9 @@
+{
+  "name": "pi-github-mcp-extension",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "typebox": "^1.1.24"
+  }
+}
