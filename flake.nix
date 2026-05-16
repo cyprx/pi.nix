@@ -11,20 +11,23 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         pi-coding-agent = pkgs.callPackage ./nix/pi-coding-agent { };
-        pi-github-mcp = pkgs.callPackage ./nix/pi-github-mcp {
+        pi-web-search = pkgs.callPackage ./nix/pi-web-search {
           inherit pi-coding-agent;
+        };
+        pi-github-mcp = pkgs.callPackage ./nix/pi-github-mcp {
+          inherit pi-coding-agent pi-web-search;
         };
       in
       {
         packages = {
-          inherit pi-coding-agent pi-github-mcp;
+          inherit pi-coding-agent pi-web-search pi-github-mcp;
           default = pi-github-mcp;
         };
 
         devShells.default = pkgs.mkShell {
           buildInputs = [ pi-github-mcp ];
           shellHook = ''
-            echo "Pi coding agent with GitHub MCP"
+            echo "Pi coding agent with GitHub MCP + Web Search"
             echo "Run: pi-github-mcp"
           '';
         };
@@ -33,6 +36,10 @@
           pi = {
             type = "app";
             program = "${pi-coding-agent}/bin/pi";
+          };
+          pi-web-search = {
+            type = "app";
+            program = "${pi-web-search}/bin/pi-web-search";
           };
           pi-github-mcp = {
             type = "app";

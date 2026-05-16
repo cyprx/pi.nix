@@ -1,0 +1,8 @@
+{
+  "name": "pi-web-search-extension",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "typebox": "^1.1.24"
+  }
+}
