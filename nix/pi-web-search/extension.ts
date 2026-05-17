@@ -2,12 +2,53 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 export default function (pi: ExtensionAPI) {
-  const searxngUrl = (process.env.SEARXNG_URL || "https://search.sapti.me").replace(/\/$/, "");
+  // User-configurable SearXNG instance(s). Comma-separated for fallback.
+  const envUrls = process.env.SEARXNG_URL;
+  const fallbackUrls = [
+    "https://search.sapti.me",
+    "https://search.bus-hit.me",
+    "https://search.blitzw.in",
+    "https://search.datura.network",
+  ];
+  const urls = envUrls
+    ? envUrls.split(",").map((u) => u.trim().replace(/\/$/, ""))
+    : fallbackUrls;
+
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    Accept: "application/json",
+  };
+
+  async function searchOne(baseUrl: string, query: string, count: number, signal?: AbortSignal) {
+    const url = new URL(`${baseUrl}/search`);
+    url.searchParams.set("q", query);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("safesearch", "0");
+
+    const response = await fetch(url.toString(), { signal, headers });
+
+    if (!response.ok) {
+      const bodyPreview = await response.text().catch(() => "");
+      throw new Error(`HTTP ${response.status}: ${response.statusText}. Body preview: ${bodyPreview.slice(0, 200)}`);
+    }
+
+    const bodyText = await response.text();
+    let data: any;
+    try {
+      data = JSON.parse(bodyText);
+    } catch (err: any) {
+      throw new Error(`JSON parse error: ${err.message}. Body preview: ${bodyText.slice(0, 300)}`);
+    }
+
+    const results = (data.results || []).slice(0, count);
+    return { results, engine: baseUrl, total: data.results?.length ?? 0 };
+  }
 
   pi.registerTool({
     name: "web_search",
     label: "Web Search",
-    description: "Search the web for current information, news, documentation, or facts.",
+    description:
+      "Search the web for current information, news, documentation, or facts. Uses SearXNG instances with automatic fallback.",
     promptSnippet: "Search the web for current information",
     promptGuidelines: [
       "Use web_search when the user asks about recent events, current data, or topics that may have changed after your training cutoff.",
@@ -23,46 +64,34 @@ export default function (pi: ExtensionAPI) {
 
       onUpdate?.({ content: [{ type: "text", text: `Searching web for: ${query}...` }] });
 
-      const url = new URL(`${searxngUrl}/search`);
-      url.searchParams.set("q", query);
-      url.searchParams.set("format", "json");
-      url.searchParams.set("safesearch", "0");
+      let lastError: Error | undefined;
+      for (const baseUrl of urls) {
+        try {
+          const { results, engine, total } = await searchOne(baseUrl, query, count, signal);
 
-      let response: Response;
-      try {
-        response = await fetch(url.toString(), { signal });
-      } catch (err: any) {
-        throw new Error(`Network error contacting search engine: ${err.message}`);
+          const lines: string[] = [];
+          lines.push(`Web search results for "${query}" (${results.length} of ${total} result${total === 1 ? "" : "s"} from ${engine}):\n`);
+
+          for (let i = 0; i < results.length; i++) {
+            const r = results[i];
+            lines.push(`[${i + 1}] ${r.title || "(no title)"}`);
+            lines.push(`    URL: ${r.url || r.pretty_url || ""}`);
+            lines.push(`    ${(r.content || r.abstract || "(no snippet)").replace(/\s+/g, " ").trim()}`);
+            lines.push("");
+          }
+
+          return {
+            content: [{ type: "text", text: lines.join("\n") || "No results found." }],
+            details: { engine, results: results },
+          };
+        } catch (err: any) {
+          lastError = err;
+          onUpdate?.({ content: [{ type: "text", text: `${baseUrl} failed (${err.message}), trying next...` }] });
+          continue;
+        }
       }
 
-      if (!response.ok) {
-        throw new Error(`Search engine returned ${response.status}: ${response.statusText}`);
-      }
-
-      let data: any;
-      try {
-        data = await response.json();
-      } catch (err: any) {
-        throw new Error(`Failed to parse search response: ${err.message}`);
-      }
-
-      const results = (data.results || []).slice(0, count);
-
-      const lines: string[] = [];
-      lines.push(`Web search results for "${query}" (${results.length} result${results.length === 1 ? "" : "s"}):\n`);
-
-      for (let i = 0; i < results.length; i++) {
-        const r = results[i];
-        lines.push(`[${i + 1}] ${r.title || "(no title)"}`);
-        lines.push(`    URL: ${r.url || r.pretty_url || ""}`);
-        lines.push(`    ${(r.content || r.abstract || "(no snippet)").replace(/\s+/g, " ").trim()}`);
-        lines.push("");
-      }
-
-      return {
-        content: [{ type: "text", text: lines.join("\n") || "No results found." }],
-        details: { engine: searxngUrl, results: data.results },
-      };
+      throw new Error(`All search engines failed. Last error: ${lastError?.message || "unknown"}`);
     },
   });
 }
