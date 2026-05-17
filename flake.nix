@@ -25,6 +25,7 @@
           inherit agentmemory iii-engine;
         };
         pi-github-mcp-ext = pkgs.callPackage ./nix/pi-github-mcp { };
+        pi-github-cli-ext = pkgs.callPackage ./nix/pi-github-cli { };
 
         # Generic builder: compose pi with any set of extensions
         mkPi = name: extensions: extraPackages: extraWrapperFlags:
@@ -35,8 +36,8 @@
         # Composed packages — mix and match extensions as needed
         pi-web-search = mkPi "web-search" [ pi-web-search-ext ] [ ] "";
         pi-agentmemory = mkPi "agentmemory" [ pi-agentmemory-ext ] [ ] "";
-        pi-github-mcp = mkPi "github-mcp" [ pi-web-search-ext pi-github-mcp-ext ] [ ] "";
-        pi-full = mkPi "full" [ pi-web-search-ext pi-agentmemory-ext pi-github-mcp-ext ] [ ] "";
+        pi-github-mcp = mkPi "github-mcp" [ pi-web-search-ext pi-github-mcp-ext pi-github-cli-ext ] [ ] "";
+        pi-full = mkPi "full" [ pi-web-search-ext pi-agentmemory-ext pi-github-mcp-ext pi-github-cli-ext ] [ ] "";
       in
       {
         packages = {
@@ -51,7 +52,7 @@
             echo "  pi              vanilla pi"
             echo "  pi-web-search   pi + web search"
             echo "  pi-agentmemory  pi + agentmemory"
-            echo "  pi-github-mcp   pi + GitHub MCP + web search"
+            echo "  pi-github-mcp   pi + GitHub MCP + web search + gh CLI"
             echo "  pi-full         pi + everything"
             echo "  agentmemory     memory server"
           '';
