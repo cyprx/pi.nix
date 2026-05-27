@@ -14,6 +14,11 @@ let
     extensions = [ (pkgs.callPackage ./pi-agentmemory { }) ];
   };
 
+  pi-localmemory-composed = mkPi {
+    name = "localmemory";
+    extensions = [ (pkgs.callPackage ./pi-localmemory { }) ];
+  };
+
   pi-github-mcp-composed = mkPi {
     name = "github-mcp";
     extensions = [ (pkgs.callPackage ./pi-web-search { }) (pkgs.callPackage ./pi-github-mcp { }) ];
@@ -32,7 +37,9 @@ in
   options.programs.pi-coding-agent = {
     enable = mkEnableOption "pi coding agent";
 
-    enableAgentMemory = mkEnableOption "agentmemory integration for pi";
+    enableAgentMemory = mkEnableOption "agentmemory integration for pi (separate server)";
+
+    enableLocalMemory = mkEnableOption "pi-localmemory (simple SQLite-backed cross-session memory, no server)";
 
     enableGitHubMCP = mkEnableOption "GitHub MCP integration for pi";
 
@@ -59,6 +66,13 @@ in
       description = "The pi-agentmemory package to use.";
     };
 
+    localMemoryPackage = mkOption {
+      type = types.package;
+      default = pkgs.pi-localmemory or pi-localmemory-composed;
+      defaultText = literalExpression "pkgs.pi-localmemory";
+      description = "The pi-localmemory package to use.";
+    };
+
     githubMCPPackage = mkOption {
       type = types.package;
       default = pkgs.pi-github-mcp or pi-github-mcp-composed;
@@ -81,6 +95,10 @@ in
 
     (mkIf (cfg.enable && cfg.enableAgentMemory) {
       environment.systemPackages = [ cfg.agentMemoryPackage ];
+    })
+
+    (mkIf (cfg.enable && cfg.enableLocalMemory) {
+      environment.systemPackages = [ cfg.localMemoryPackage ];
     })
 
     (mkIf (cfg.enable && cfg.enableGitHubMCP) {

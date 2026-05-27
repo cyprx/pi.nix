@@ -17,15 +17,15 @@ let
     };
     "aarch64-linux" = {
       asset = "iii-aarch64-unknown-linux-gnu.tar.gz";
-      sha256 = lib.fakeHash;
+      sha256 = "sha256-4NNe5UprbIpGV2q2YeFxHRHrTa/rG+jh29HMDMtIthU=";
     };
     "x86_64-darwin" = {
       asset = "iii-x86_64-apple-darwin.tar.gz";
-      sha256 = lib.fakeHash;
+      sha256 = "sha256-K2fl8YgzxBX0yxap4TsOlTVV4MoThoK/JIlKvouAuDY=";
     };
     "aarch64-darwin" = {
       asset = "iii-aarch64-apple-darwin.tar.gz";
-      sha256 = lib.fakeHash;
+      sha256 = "sha256-54NMRP77K1ND0ycQKpQUGSRff/9Ef5U3OFegSwM/sb0=";
     };
   };
 

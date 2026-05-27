@@ -1,16 +1,29 @@
-# Pi Coding Agent with GitHub MCP + Web Search + AgentMemory — Nix Flake
+# Pi Coding Agent with GitHub MCP + Web Search + Memory — Nix Flake
 
-A Nix flake that packages [pi](https://pi.dev) (the minimal terminal coding harness) with [GitHub MCP](https://github.com/github/github-mcp-server), **web search**, and **[agentmemory](https://github.com/rohitg00/agentmemory)** persistent cross-session memory — ready to use on NixOS.
+A Nix flake that packages [pi](https://pi.dev) (the minimal terminal coding harness) with [GitHub MCP](https://github.com/github/github-mcp-server), **web search**, and two persistent cross-session **memory** backends — ready to use on NixOS.
 
 ## Features
 
 - **pi-coding-agent** — Packaged from npm with all dependencies
 - **github-mcp-server** — Pre-integrated via a pi extension
 - **web search** — Search the web via SearXNG (zero config, public instance)
-- **agentmemory** — Persistent memory that survives across sessions (recall prior decisions, bugs, workflows, and preferences)
+- **pi-localmemory** — Zero-dependency cross-session memory: one SQLite file + FTS5, no server, per-project scoping
+- **agentmemory** — Heavier memory backend with a separate iii-engine server (smart search, shared across users)
 - **Composable** — Mix and match extensions, or use `pi-full` for everything
 - **NixOS module** — System-wide configuration
 - **Home Manager module** — Per-user configuration
+
+### Which memory should I pick?
+
+| | `pi-localmemory` | `pi-agentmemory` |
+|---|---|---|
+| Extra process | none | `nix run .#agentmemory` |
+| Native binary | none (uses Node's `node:sqlite`) | `iii-engine` (Rust, prebuilt per platform) |
+| Scope | per-project by default, opt-in global | global |
+| Search | SQLite FTS5 (BM25 ranked) | smart/semantic search |
+| Best for | a single developer's workstation | teams or rich semantic recall |
+
+Both extensions register the same tool names (`memory_search`, `memory_save`, `memory_health`) so prompts written for one work with the other.
 
 ## Quick Start
 
@@ -27,9 +40,11 @@ nix run github:cyprx/pi.nix#agentmemory
 ### Run individual variants
 
 ```bash
-nix run github:cyprx/pi.nix#pi-web-search   # web search only
-nix run github:cyprx/pi.nix#pi-agentmemory  # agentmemory only
-nix run github:cyprx/pi.nix#pi-github-mcp   # GitHub MCP + web search
+nix run github:cyprx/pi.nix#pi-web-search    # web search only
+nix run github:cyprx/pi.nix#pi-localmemory   # local SQLite memory only (no server)
+nix run github:cyprx/pi.nix#pi-lite          # web search + local memory (no server, no token)
+nix run github:cyprx/pi.nix#pi-agentmemory   # agentmemory only
+nix run github:cyprx/pi.nix#pi-github-mcp    # GitHub MCP + web search
 ```
 
 ### Enter a dev shell
@@ -68,6 +83,64 @@ Set `SEARXNG_URL` to use your own instance:
 export SEARXNG_URL="https://search.example.com"
 nix run .#pi-full
 ```
+
+## Local Memory (`pi-localmemory`)
+
+A dead-simple memory backend that lives in a single SQLite file. No second process, no native binary to fetch — it uses Node 24's built-in `node:sqlite` and FTS5.
+
+### Run
+
+```bash
+nix run .#pi-localmemory     # or pi-lite, pi-full
+```
+
+### What it adds
+
+- `memory_search` — FTS5-ranked search over your notes (project-scoped by default)
+- `memory_save` — persist a titled note (with optional `kind`, `tags`, `scope`)
+- `memory_forget` — delete a note by id
+- `memory_health` — db path + entry counts
+- `/localmemory-status` — quick status from inside pi
+- `before_agent_start` recall — top-5 matches for your prompt injected into the system prompt
+- `agent_end` capture — **opt-in only**: assistant text is saved only when it contains a `<remember>…</remember>` block
+
+### `<remember>` capture syntax
+
+The agent (or you, in your reply) wraps durable facts in a tag:
+
+```
+<remember kind="decision" tags="auth,oauth">
+Use PKCE for native clients
+---
+Native apps cannot keep a client secret safe, so use PKCE for the OAuth flow.
+</remember>
+
+<remember scope="global">
+Prefer ripgrep over grep
+</remember>
+```
+
+- First line (or text before `---`) is the title; rest is the body.
+- Attributes: `kind` (decision/convention/bug/pref/note), `tags` (comma-separated), `scope` (`project` default, or `global`).
+
+### Scoping
+
+- **Per-project by default.** The project root is detected via `git rev-parse --show-toplevel`, falling back to `$PWD`.
+- Searches return matches in the current project **plus** anything saved with `scope="global"`.
+- Pass `scope: "global"` or `scope: "all"` to `memory_search` to broaden.
+- Set `PI_MEMORY_GLOBAL=1` to make `global` the default scope for new saves.
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `PI_MEMORY_DB` | `$XDG_DATA_HOME/pi/memory.db` | SQLite file path |
+| `PI_MEMORY_PROJECT` | (auto, git root or `$PWD`) | Override detected project root |
+| `PI_MEMORY_GLOBAL` | (off) | When `1`, new saves default to global scope |
+
+### Node version
+
+Requires Node 24+ (stable `node:sqlite`). The flake's `pi-coding-agent` already pulls a Node 24 from nixpkgs, so `nix run` works out of the box. On Node 22.5–23, set `NODE_OPTIONS=--experimental-sqlite`.
 
 ## AgentMemory
 
@@ -131,10 +204,12 @@ This starts the memory server on `http://localhost:3111`.
 | Option | Description |
 |---|---|
 | `enable` | Install base pi |
-| `enableAgentMemory` | Install pi with agentmemory |
+| `enableAgentMemory` | Install pi with agentmemory (separate server) |
+| `enableLocalMemory` | Install pi with `pi-localmemory` (no server) |
 | `enableGitHubMCP` | Install pi with GitHub MCP + web search |
 | `package` | Base pi package |
 | `agentMemoryPackage` | Package used when `enableAgentMemory` is true |
+| `localMemoryPackage` | Package used when `enableLocalMemory` is true |
 | `githubMCPPackage` | Package used when `enableGitHubMCP` is true |
 | `fullPackage` | Package with everything (for custom use) |
 
@@ -159,7 +234,9 @@ This starts the memory server on `http://localhost:3111`.
 |---------|-------------|
 | `pi-coding-agent` | Pi CLI only |
 | `pi-web-search` | Pi + web search |
-| `pi-agentmemory` | Pi + agentmemory |
+| `pi-localmemory` | Pi + local SQLite memory (no server) |
+| `pi-agentmemory` | Pi + agentmemory (needs server) |
+| `pi-lite` | Pi + web search + local memory (no server, no token) |
 | `pi-github-mcp` | Pi + GitHub MCP + web search |
 | `pi-full` | Pi + everything (default) |
 | `agentmemory` | Standalone agentmemory server (bundles iii-engine) |
@@ -171,7 +248,9 @@ This starts the memory server on `http://localhost:3111`.
 |-----|---------|
 | `pi` | Vanilla pi |
 | `pi-web-search` | Pi + web search |
+| `pi-localmemory` | Pi + local SQLite memory |
 | `pi-agentmemory` | Pi + agentmemory |
+| `pi-lite` | Pi + web search + local memory |
 | `pi-github-mcp` | Pi + GitHub MCP + web search |
 | `pi-full` | Pi + everything (default) |
 
