@@ -7,23 +7,41 @@
 
 buildNpmPackage rec {
   pname = "pi-coding-agent";
-  version = "0.74.0";
+  version = "0.75.5";
 
   src = fetchurl {
     url = "https://registry.npmjs.org/@earendil-works/pi-coding-agent/-/pi-coding-agent-${version}.tgz";
-    hash = "sha256-l0pzuWGVvX1jDhFYaey14N16XDo47kkm3JlEhmPUo0Q=";
+    hash = "sha256-iP/3TR/MkzQ+g5qoherLNeiM2quX2sJjaxG+zDskmfw=";
   };
 
   sourceRoot = "package";
 
   nativeBuildInputs = [ makeWrapper ];
 
-  npmDepsHash = "sha256-zidLxfFsvuQsyfxBQqRE1fO/AVhMpLs8RagnqlJSjQI=";
+  # Updated whenever package-lock.json changes. Run with lib.fakeHash to refresh.
+  npmDepsHash = "sha256-GZtl7v1xfBgFgXST/aJem5RI4+sffdSnJJX7OMBe4tY=";
 
-  # Vendored lock file since the npm tarball doesn't include one
+  # Vendored lock file. Pi 0.75+ ships an npm-shrinkwrap.json, but it lacks
+  # integrity hashes for the internal @earendil-works/* siblings. Our vendored
+  # file is that shrinkwrap with the missing integrities injected; replace both
+  # files so npm uses ours.
   postPatch = ''
+    rm -f npm-shrinkwrap.json
     cp ${./package-lock.json} package-lock.json
+    # The shipped shrinkwrap doesn't list devDependencies, and we don't need
+    # them at runtime. Strip them from package.json so npm doesn't try to
+    # reconcile and fetch from the sealed cache.
+    ${nodejs}/bin/node -e '
+      const fs = require("fs");
+      const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
+      delete p.devDependencies;
+      fs.writeFileSync("package.json", JSON.stringify(p, null, 2));
+    '
   '';
+
+  # devDependencies (@types/*, typescript, vitest, shx) aren't in the shipped
+  # shrinkwrap and aren't needed at runtime.
+  npmFlags = [ "--omit=dev" ];
 
   dontNpmBuild = true;
 
