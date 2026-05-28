@@ -7,11 +7,11 @@
 
 buildNpmPackage rec {
   pname = "pi-coding-agent";
-  version = "0.75.5";
+  version = "0.76.0";
 
   src = fetchurl {
     url = "https://registry.npmjs.org/@earendil-works/pi-coding-agent/-/pi-coding-agent-${version}.tgz";
-    hash = "sha256-iP/3TR/MkzQ+g5qoherLNeiM2quX2sJjaxG+zDskmfw=";
+    hash = "sha256-aMCGb6NsJK3FzrZlBrs/Qpy+zMTPh21Sm1EooHVyo+I=";
   };
 
   sourceRoot = "package";
@@ -19,7 +19,8 @@ buildNpmPackage rec {
   nativeBuildInputs = [ makeWrapper ];
 
   # Updated whenever package-lock.json changes. Run with lib.fakeHash to refresh.
-  npmDepsHash = "sha256-GZtl7v1xfBgFgXST/aJem5RI4+sffdSnJJX7OMBe4tY=";
+  # Updated whenever package-lock.json changes. Use lib.fakeHash to refresh.
+  npmDepsHash = "sha256-M5edTjf26CP93REV3/+ll78tVcxSRzlPUnHncg4uqyM=";
 
   # Vendored lock file. Pi 0.75+ ships an npm-shrinkwrap.json, but it lacks
   # integrity hashes for the internal @earendil-works/* siblings. Our vendored
