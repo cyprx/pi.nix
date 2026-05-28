@@ -9,11 +9,6 @@ let
     pi-coding-agent = cfg.package;
   };
 
-  pi-agentmemory-composed = mkPi {
-    name = "agentmemory";
-    extensions = [ (pkgs.callPackage ./pi-agentmemory { }) ];
-  };
-
   pi-localmemory-composed = mkPi {
     name = "localmemory";
     extensions = [ (pkgs.callPackage ./pi-localmemory { }) ];
@@ -28,7 +23,7 @@ let
     name = "full";
     extensions = [
       (pkgs.callPackage ./pi-web-search { })
-      (pkgs.callPackage ./pi-agentmemory { })
+      (pkgs.callPackage ./pi-localmemory { })
       (pkgs.callPackage ./pi-github-mcp { })
     ];
   };
@@ -36,8 +31,6 @@ in
 {
   options.programs.pi-coding-agent = {
     enable = mkEnableOption "pi coding agent";
-
-    enableAgentMemory = mkEnableOption "agentmemory integration for pi (separate server)";
 
     enableLocalMemory = mkEnableOption "pi-localmemory (simple SQLite-backed cross-session memory, no server)";
 
@@ -57,13 +50,6 @@ in
       default = pkgs.pi-coding-agent or pkgs.callPackage ./pi-coding-agent { };
       defaultText = literalExpression "pkgs.pi-coding-agent";
       description = "The pi coding agent package to use.";
-    };
-
-    agentMemoryPackage = mkOption {
-      type = types.package;
-      default = pkgs.pi-agentmemory or pi-agentmemory-composed;
-      defaultText = literalExpression "pkgs.pi-agentmemory";
-      description = "The pi-agentmemory package to use.";
     };
 
     localMemoryPackage = mkOption {
@@ -91,10 +77,6 @@ in
   config = mkMerge [
     (mkIf cfg.enable {
       environment.systemPackages = [ cfg.package ];
-    })
-
-    (mkIf (cfg.enable && cfg.enableAgentMemory) {
-      environment.systemPackages = [ cfg.agentMemoryPackage ];
     })
 
     (mkIf (cfg.enable && cfg.enableLocalMemory) {

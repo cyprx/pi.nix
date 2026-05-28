@@ -1,49 +1,31 @@
-# Pi Coding Agent with GitHub MCP + Web Search + Memory — Nix Flake
+# Pi Coding Agent with GitHub MCP + Web Search + Local Memory — Nix Flake
 
-A Nix flake that packages [pi](https://pi.dev) (the minimal terminal coding harness) with [GitHub MCP](https://github.com/github/github-mcp-server), **web search**, and two persistent cross-session **memory** backends — ready to use on NixOS.
+A Nix flake that packages [pi](https://pi.dev) (the minimal terminal coding harness) with [GitHub MCP](https://github.com/github/github-mcp-server), **web search**, and a simple **SQLite-backed cross-session memory** — ready to use on NixOS, macOS, and any system with Nix.
 
 ## Features
 
-- **pi-coding-agent** — Packaged from npm with all dependencies
+- **pi-coding-agent** — Packaged from npm with all dependencies (currently v0.75.5)
 - **github-mcp-server** — Pre-integrated via a pi extension
 - **web search** — Search the web via SearXNG (zero config, public instance)
-- **pi-localmemory** — Zero-dependency cross-session memory: one SQLite file + FTS5, no server, per-project scoping
-- **agentmemory** — Heavier memory backend with a separate iii-engine server (smart search, shared across users)
+- **pi-localmemory** — Zero-dependency cross-session memory: one SQLite file + FTS5, no server, no native binary, per-project scoping
 - **Composable** — Mix and match extensions, or use `pi-full` for everything
 - **NixOS module** — System-wide configuration
 - **Home Manager module** — Per-user configuration
-
-### Which memory should I pick?
-
-| | `pi-localmemory` | `pi-agentmemory` |
-|---|---|---|
-| Extra process | none | `nix run .#agentmemory` |
-| Native binary | none (uses Node's `node:sqlite`) | `iii-engine` (Rust, prebuilt per platform) |
-| Scope | per-project by default, opt-in global | global |
-| Search | SQLite FTS5 (BM25 ranked) | smart/semantic search |
-| Best for | a single developer's workstation | teams or rich semantic recall |
-
-Both extensions register the same tool names (`memory_search`, `memory_save`, `memory_health`) so prompts written for one work with the other.
 
 ## Quick Start
 
 ### Run everything (recommended)
 
 ```bash
-# Pi with web search + agentmemory + GitHub MCP
 nix run github:cyprx/pi.nix#pi-full
-
-# Start the agentmemory server (in another terminal)
-nix run github:cyprx/pi.nix#agentmemory
 ```
 
 ### Run individual variants
 
 ```bash
 nix run github:cyprx/pi.nix#pi-web-search    # web search only
-nix run github:cyprx/pi.nix#pi-localmemory   # local SQLite memory only (no server)
-nix run github:cyprx/pi.nix#pi-lite          # web search + local memory (no server, no token)
-nix run github:cyprx/pi.nix#pi-agentmemory   # agentmemory only
+nix run github:cyprx/pi.nix#pi-localmemory   # local SQLite memory only
+nix run github:cyprx/pi.nix#pi-lite          # web search + local memory (no token needed)
 nix run github:cyprx/pi.nix#pi-github-mcp    # GitHub MCP + web search
 ```
 
@@ -51,7 +33,7 @@ nix run github:cyprx/pi.nix#pi-github-mcp    # GitHub MCP + web search
 
 ```bash
 nix develop
-pi-full   # or pi-web-search, pi-agentmemory, pi-github-mcp
+pi-full   # or pi-web-search, pi-localmemory, pi-lite, pi-github-mcp
 ```
 
 ## GitHub Authentication
@@ -120,7 +102,7 @@ Prefer ripgrep over grep
 </remember>
 ```
 
-- First line (or text before `---`) is the title; rest is the body.
+- First line (or text before `---`) is the title; the rest is the body.
 - Attributes: `kind` (decision/convention/bug/pref/note), `tags` (comma-separated), `scope` (`project` default, or `global`).
 
 ### Scoping
@@ -140,45 +122,22 @@ Prefer ripgrep over grep
 
 ### Node version
 
-Requires Node 24+ (stable `node:sqlite`). The flake's `pi-coding-agent` already pulls a Node 24 from nixpkgs, so `nix run` works out of the box. On Node 22.5–23, set `NODE_OPTIONS=--experimental-sqlite`.
+Requires Node 24+ (stable `node:sqlite`). The flake's `pi-coding-agent` already pulls Node 24 from nixpkgs, so `nix run` works out of the box. On Node 22.5–23, set `NODE_OPTIONS=--experimental-sqlite`.
 
-## AgentMemory
+### Inspecting the store
 
-[agentmemory](https://github.com/rohitg00/agentmemory) adds persistent cross-session memory to pi. It remembers prior decisions, bugs, workflows, and user preferences — so you never have to re-explain context.
-
-### Start the memory server
-
-In a separate terminal:
+It's just SQLite — use any tool you like:
 
 ```bash
-nix run .#agentmemory
-# or just: agentmemory
+sqlite3 ~/.local/share/pi/memory.db \
+  "SELECT id, datetime(ts/1000,'unixepoch'), kind, title FROM memories ORDER BY ts DESC LIMIT 20"
 ```
-
-This starts the memory server on `http://localhost:3111`.
-
-### What it adds
-
-- `memory_health` — confirm the shared memory server is reachable
-- `memory_search` — search prior decisions, bugs, workflows, and preferences
-- `memory_save` — write durable facts back to long-term memory
-- `/agentmemory-status` — check health from inside pi
-- `before_agent_start` recall — injects relevant memories into the prompt automatically
-- `agent_end` capture — saves completed conversation turns back to agentmemory
-
-### Environment variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `AGENTMEMORY_URL` | `http://localhost:3111` | agentmemory server URL |
-| `AGENTMEMORY_SECRET` | (none) | Bearer token for protected instances |
-| `AGENTMEMORY_REQUIRE_HTTPS` | (off) | When `1`, refuse plaintext HTTP for non-loopback |
 
 ## NixOS Module
 
 ```nix
 {
-  inputs.pi-nix.url = "github:youruser/pi-nix";
+  inputs.pi-nix.url = "github:cyprx/pi.nix";
 
   outputs = { self, nixpkgs, pi-nix }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
@@ -188,7 +147,7 @@ This starts the memory server on `http://localhost:3111`.
         {
           programs.pi-coding-agent = {
             enable = true;
-            enableAgentMemory = true;
+            enableLocalMemory = true;
             enableGitHubMCP = true;
             githubTokenFile = "/run/secrets/github-token";
           };
@@ -204,11 +163,9 @@ This starts the memory server on `http://localhost:3111`.
 | Option | Description |
 |---|---|
 | `enable` | Install base pi |
-| `enableAgentMemory` | Install pi with agentmemory (separate server) |
 | `enableLocalMemory` | Install pi with `pi-localmemory` (no server) |
 | `enableGitHubMCP` | Install pi with GitHub MCP + web search |
 | `package` | Base pi package |
-| `agentMemoryPackage` | Package used when `enableAgentMemory` is true |
 | `localMemoryPackage` | Package used when `enableLocalMemory` is true |
 | `githubMCPPackage` | Package used when `enableGitHubMCP` is true |
 | `fullPackage` | Package with everything (for custom use) |
@@ -221,7 +178,7 @@ This starts the memory server on `http://localhost:3111`.
 
   programs.pi-coding-agent = {
     enable = true;
-    enableAgentMemory = true;
+    enableLocalMemory = true;
     enableGitHubMCP = true;
     githubTokenFile = "${config.home.homeDirectory}/.config/github/token";
   };
@@ -235,12 +192,9 @@ This starts the memory server on `http://localhost:3111`.
 | `pi-coding-agent` | Pi CLI only |
 | `pi-web-search` | Pi + web search |
 | `pi-localmemory` | Pi + local SQLite memory (no server) |
-| `pi-agentmemory` | Pi + agentmemory (needs server) |
 | `pi-lite` | Pi + web search + local memory (no server, no token) |
-| `pi-github-mcp` | Pi + GitHub MCP + web search |
+| `pi-github-mcp` | Pi + GitHub MCP + web search + gh CLI |
 | `pi-full` | Pi + everything (default) |
-| `agentmemory` | Standalone agentmemory server (bundles iii-engine) |
-| `iii-engine` | iii-engine runtime (used by agentmemory) |
 
 ## Available Apps
 
@@ -249,45 +203,38 @@ This starts the memory server on `http://localhost:3111`.
 | `pi` | Vanilla pi |
 | `pi-web-search` | Pi + web search |
 | `pi-localmemory` | Pi + local SQLite memory |
-| `pi-agentmemory` | Pi + agentmemory |
 | `pi-lite` | Pi + web search + local memory |
-| `pi-github-mcp` | Pi + GitHub MCP + web search |
+| `pi-github-mcp` | Pi + GitHub MCP + web search + gh CLI |
 | `pi-full` | Pi + everything (default) |
 
 ## How it works
 
 This flake uses a composable architecture:
 
-1. **Extensions** (`nix/pi-extensions/*`) are standalone pi extension packages that output TypeScript source files
-2. **Builder** (`nix/lib/mk-pi-with-extensions.nix`) takes pi + a list of extensions and produces a wrapper that loads all extensions via `pi -e`
-3. **Composed packages** combine extensions into ready-to-use variants
+1. **Extensions** (`nix/pi-*`) are standalone pi extension packages that output TypeScript source files into `$out/share/pi-extensions/`.
+2. **Builder** (`nix/lib/mk-pi-with-extensions.nix`) takes pi + a list of extensions and produces a wrapper that loads all of them via `pi -e <ext>/share/pi-extensions/extension.ts`.
+3. **Composed packages** combine extensions into ready-to-use variants.
 
 ### Extension composition
 
 ```nix
-# In the flake — compose any combination you want
+# In flake.nix — compose any combination you want
 pi-web-search  = mkPi "web-search"  [ pi-web-search-ext ] [] "";
-pi-agentmemory = mkPi "agentmemory" [ pi-agentmemory-ext ] [] "";
-pi-github-mcp  = mkPi "github-mcp"  [ pi-web-search-ext pi-github-mcp-ext ] [] "";
-pi-full        = mkPi "full"        [ pi-web-search-ext pi-agentmemory-ext pi-github-mcp-ext ] [] "";
+pi-localmemory = mkPi "localmemory" [ pi-localmemory-ext ] [] "";
+pi-lite        = mkPi "lite"        [ pi-web-search-ext pi-localmemory-ext ] [] "";
+pi-github-mcp  = mkPi "github-mcp"  [ pi-web-search-ext pi-github-mcp-ext pi-github-cli-ext ] [] "";
+pi-full        = mkPi "full"        [ pi-web-search-ext pi-localmemory-ext pi-github-mcp-ext pi-github-cli-ext ] [] "";
 ```
 
 Each extension declares its runtime dependencies (`passthru.runtimeInputs`) and wrapper flags (`passthru.wrapperFlags`). The builder automatically merges PATH and flags from all extensions.
 
-### `agentmemory`
+### `pi-localmemory` internals
 
-1. Packages the `@agentmemory/agentmemory` npm package as a standalone server binary
-2. Bundles the [iii-engine](https://github.com/iii-hq/iii) runtime (the Rust binary agentmemory depends on)
-3. Runs the iii-engine memory server on port `3111` with file-based SQLite storage
-
-> **Note:** You don't need to install iii-engine separately — this flake packages it automatically and puts it on PATH for both the standalone `agentmemory` server and the `pi-agentmemory` / `pi-full` wrappers.
-
-### `pi-agentmemory` extension
-
-1. Registers `memory_health`, `memory_search`, and `memory_save` tools
-2. Hooks `session_start` to initialize session tracking
-3. Hooks `before_agent_start` to query agentmemory and inject relevant memories into the system prompt
-4. Hooks `agent_end` to capture conversation turns and persist them
+1. Registers `memory_search`, `memory_save`, `memory_forget`, and `memory_health` tools.
+2. Opens (and lazily creates) a SQLite database at `$XDG_DATA_HOME/pi/memory.db` via Node's built-in `node:sqlite`.
+3. Stores rows in a `memories(id, ts, project, kind, title, body, tags)` table with a parallel FTS5 virtual table kept in sync by triggers, indexed with the `porter unicode61` tokenizer for prefix search and BM25 ranking.
+4. Detects the current project with `git rev-parse --show-toplevel` (falling back to `$PWD`); rows with `project = "*"` are global.
+5. Hooks `before_agent_start` to inject the top-5 matches for the user prompt into the system prompt, and `agent_end` to scan the assistant message for `<remember>` blocks and persist them.
 
 ## License
 
