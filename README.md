@@ -4,7 +4,7 @@ A Nix flake that packages [pi](https://pi.dev) (the minimal terminal coding harn
 
 ## Features
 
-- **pi-coding-agent** — Packaged from npm with all dependencies (currently v0.76.0)
+- **pi-coding-agent** — Packaged from npm with all dependencies (currently v0.77.0)
 - **github-mcp-server** — Pre-integrated via a pi extension
 - **web search** — Search the web via SearXNG (zero config, public instance)
 - **pi-localmemory** — Zero-dependency cross-session memory: one SQLite file + FTS5, no server, no native binary, per-project scoping
